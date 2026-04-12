@@ -1,0 +1,20 @@
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Local logs
+logs/
+*.log
+
+# Local runner state when experimenting from a checkout
+.runner
+.credentials
+.credentials_rsaparams
+_diag/
+_work/
+
+# Local editor / OS files
+.DS_Store
+.idea/
+.vscode/
