@@ -28,7 +28,7 @@ docker run --rm -it \
 
 ## Publishing
 
-The bundled GitHub Actions workflow only builds on `release.published`.
+The bundled GitHub Actions workflow only builds on `release.published`, and it runs on GitHub hosted runners so the image pipeline does not depend on this self-hosted runner image already existing.
 
 If you publish a GitHub Release from a tag like `v1.2.3`, the workflow pushes:
 
