@@ -62,33 +62,16 @@ ARGS=(
 ./config.sh "${ARGS[@]}"
 
 # Deregister runner on container stop/destroy
-RUNNER_PID=
 cleanup() {
-  trap - SIGTERM SIGINT EXIT
-
-  if [ -n "${RUNNER_PID}" ]; then
-    kill -TERM "${RUNNER_PID}" 2>/dev/null
-    wait "${RUNNER_PID}" 2>/dev/null
-  fi
-
-  set +e
-
   echo "Removing runner from GitHub..."
   REMOVE_TOKEN=$(curl -fsSL \
     -X POST \
     -H "Authorization: Bearer ${ACCESS_TOKEN}" \
     -H "Accept: application/vnd.github.v3+json" \
     "https://api.github.com/repos/${GITHUB_REPO}/actions/runners/remove-token" | jq -r .token)
-
-  if [ "${REMOVE_TOKEN}" = "null" ] || [ -z "${REMOVE_TOKEN}" ]; then
-    echo "Warning: Remove token was empty or null; skipping runner deregistration."
-    return 0
-  fi
-
-  ./config.sh remove --token "${REMOVE_TOKEN}" || echo "Warning: Failed to deregister runner from GitHub."
+  ./config.sh remove --token "${REMOVE_TOKEN}" || true
 }
 trap cleanup SIGTERM SIGINT EXIT
 
 ./run.sh &
-RUNNER_PID=$!
-wait "${RUNNER_PID}"
+wait $!
