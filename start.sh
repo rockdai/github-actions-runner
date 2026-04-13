@@ -61,4 +61,17 @@ ARGS=(
 
 ./config.sh "${ARGS[@]}"
 
-exec ./run.sh
+# Deregister runner on container stop/destroy
+cleanup() {
+  echo "Removing runner from GitHub..."
+  REMOVE_TOKEN=$(curl -fsSL \
+    -X POST \
+    -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+    -H "Accept: application/vnd.github.v3+json" \
+    "https://api.github.com/repos/${GITHUB_REPO}/actions/runners/remove-token" | jq -r .token)
+  ./config.sh remove --token "${REMOVE_TOKEN}" || true
+}
+trap cleanup SIGTERM SIGINT EXIT
+
+./run.sh &
+wait $!
