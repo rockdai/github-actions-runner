@@ -23,8 +23,11 @@ docker build -t rockdai/github-actions-runner:latest .
 docker run --rm -it \
   --env-file .env \
   -v /var/run/docker.sock:/var/run/docker.sock \
+  -v runner-action-cache:/home/runner/_action-cache \
   rockdai/github-actions-runner:latest
 ```
+
+The `-v runner-action-cache:…` volume persists the **action archive cache** across container restarts so that actions (e.g. `actions/checkout`, `actions/setup-java`) are downloaded only once instead of on every run. See [GitHub docs](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/managing-access-to-self-hosted-runners#configuring-the-action-archive-cache) for details.
 
 ## Publishing
 

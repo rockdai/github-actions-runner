@@ -49,6 +49,10 @@ RUN ARCH=$(dpkg --print-architecture) && \
 RUN mkdir -p /opt/hostedtoolcache && chown runner:runner /opt/hostedtoolcache
 ENV RUNNER_TOOL_CACHE=/opt/hostedtoolcache
 
+# Action archive cache to avoid re-downloading actions on every run
+RUN mkdir -p /home/runner/_action-cache && chown runner:runner /home/runner/_action-cache
+ENV ACTIONS_RUNNER_ACTION_ARCHIVE_CACHE=/home/runner/_action-cache
+
 RUN chown -R runner:runner /home/runner
 
 COPY start.sh ./start.sh
