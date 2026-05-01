@@ -4,12 +4,16 @@ ARG RUNNER_VERSION=2.333.1
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Basic dependencies
+# Basic dependencies. python3 + build-essential are needed by node-gyp so jobs that
+# install npm packages with native deps (node-pty, better-sqlite3, etc.) can compile
+# from source when no prebuild matches the runner kernel.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     ca-certificates \
     curl \
     git \
     jq \
+    python3 \
     sudo \
     unzip \
     && rm -rf /var/lib/apt/lists/*
