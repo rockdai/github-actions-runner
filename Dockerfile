@@ -81,11 +81,12 @@ RUN ARCH=$(dpkg --print-architecture) && \
     tar -xzf /tmp/node.tar.gz -C "${NODE_DIR}" --strip-components=1 && \
     rm /tmp/node.tar.gz && \
     touch "/opt/hostedtoolcache/node/${NODE_VERSION}/${ARCH}.complete" && \
-    "${NODE_DIR}/bin/node" --version && \
-    "${NODE_DIR}/bin/npm" install -g "pnpm@${PNPM_VERSION}" \
+    export PATH="${NODE_DIR}/bin:${PATH}" && \
+    node --version && \
+    npm install -g "pnpm@${PNPM_VERSION}" \
       --registry="${NPM_REGISTRY}" \
       --no-audit --no-fund && \
-    "${NODE_DIR}/bin/pnpm" --version && \
+    pnpm --version && \
     chown -R runner:runner /opt/hostedtoolcache/node
 
 # Action archive cache to avoid re-downloading actions on every run
