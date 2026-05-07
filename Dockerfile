@@ -53,9 +53,44 @@ RUN ARCH=$(dpkg --print-architecture) && \
 RUN mkdir -p /opt/hostedtoolcache && chown runner:runner /opt/hostedtoolcache
 ENV RUNNER_TOOL_CACHE=/opt/hostedtoolcache
 
+# Pre-install Node.js + pnpm into the tool cache so actions/setup-node finds
+# Node without hitting the network, and pnpm is available on PATH alongside
+# it. setup-node matches by semver, so workflows pinning `22` or `22.13`
+# (the major/minor of NODE_VERSION) reuse this build's binary. Override
+# versions at build time with --build-arg NODE_VERSION=... / PNPM_VERSION=...
+ARG NODE_VERSION=22.13.1
+ARG PNPM_VERSION=10.33.4
+RUN ARCH=$(dpkg --print-architecture) && \
+    case "${ARCH}" in \
+      amd64) ARCH='x64' ;; \
+      arm64) ARCH='arm64' ;; \
+      *) echo "Unsupported architecture: ${ARCH}" >&2; exit 1 ;; \
+    esac && \
+    NODE_DIR="/opt/hostedtoolcache/node/${NODE_VERSION}/${ARCH}" && \
+    mkdir -p "${NODE_DIR}" && \
+    curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${ARCH}.tar.gz" \
+      | tar -xz -C "${NODE_DIR}" --strip-components=1 && \
+    touch "/opt/hostedtoolcache/node/${NODE_VERSION}/${ARCH}.complete" && \
+    "${NODE_DIR}/bin/node" --version && \
+    "${NODE_DIR}/bin/npm" install -g "pnpm@${PNPM_VERSION}" \
+      --registry=https://registry.npmmirror.com/ \
+      --no-audit --no-fund && \
+    "${NODE_DIR}/bin/pnpm" --version && \
+    chown -R runner:runner /opt/hostedtoolcache/node
+
 # Action archive cache to avoid re-downloading actions on every run
 RUN mkdir -p /home/runner/_action-cache && chown runner:runner /home/runner/_action-cache
 ENV ACTIONS_RUNNER_ACTION_ARCHIVE_CACHE=/home/runner/_action-cache
+
+# Cap @actions/cache segment downloads at 3 minutes (default 10). When the
+# Actions cache CDN is unreachable from the runner network, restore stalls
+# for the full 10-minute window per segment and burns the job timeout.
+ENV SEGMENT_DOWNLOAD_TIMEOUT_MINS=3
+
+# Default npm/pnpm/yarn to a fast mirror. The upstream registry.npmjs.org is
+# slow enough from this runner's network to time out 15-min jobs on its own.
+# Override with -e npm_config_registry=... if you need a different registry.
+ENV npm_config_registry=https://registry.npmmirror.com/
 
 RUN chown -R runner:runner /home/runner
 
