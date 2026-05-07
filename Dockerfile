@@ -57,9 +57,11 @@ ENV RUNNER_TOOL_CACHE=/opt/hostedtoolcache
 # Node without hitting the network, and pnpm is available on PATH alongside
 # it. setup-node matches by semver, so workflows pinning `22` or `22.13`
 # (the major/minor of NODE_VERSION) reuse this build's binary. Override
-# versions at build time with --build-arg NODE_VERSION=... / PNPM_VERSION=...
+# versions or the registry with --build-arg NODE_VERSION=... / PNPM_VERSION=...
+# / NPM_REGISTRY=...
 ARG NODE_VERSION=22.13.1
 ARG PNPM_VERSION=10.33.4
+ARG NPM_REGISTRY=https://registry.npmmirror.com/
 RUN ARCH=$(dpkg --print-architecture) && \
     case "${ARCH}" in \
       amd64) ARCH='x64' ;; \
@@ -67,13 +69,21 @@ RUN ARCH=$(dpkg --print-architecture) && \
       *) echo "Unsupported architecture: ${ARCH}" >&2; exit 1 ;; \
     esac && \
     NODE_DIR="/opt/hostedtoolcache/node/${NODE_VERSION}/${ARCH}" && \
+    NODE_TGZ="node-v${NODE_VERSION}-linux-${ARCH}.tar.gz" && \
     mkdir -p "${NODE_DIR}" && \
-    curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${ARCH}.tar.gz" \
-      | tar -xz -C "${NODE_DIR}" --strip-components=1 && \
+    curl -fsSL --retry 3 --retry-delay 5 -o /tmp/node.tar.gz \
+      "https://nodejs.org/dist/v${NODE_VERSION}/${NODE_TGZ}" && \
+    EXPECTED_SHA=$(curl -fsSL --retry 3 --retry-delay 5 \
+                     "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt" \
+                   | awk -v f="${NODE_TGZ}" '$2==f{print $1}') && \
+    [ -n "${EXPECTED_SHA}" ] && \
+    echo "${EXPECTED_SHA}  /tmp/node.tar.gz" | sha256sum -c - && \
+    tar -xzf /tmp/node.tar.gz -C "${NODE_DIR}" --strip-components=1 && \
+    rm /tmp/node.tar.gz && \
     touch "/opt/hostedtoolcache/node/${NODE_VERSION}/${ARCH}.complete" && \
     "${NODE_DIR}/bin/node" --version && \
     "${NODE_DIR}/bin/npm" install -g "pnpm@${PNPM_VERSION}" \
-      --registry=https://registry.npmmirror.com/ \
+      --registry="${NPM_REGISTRY}" \
       --no-audit --no-fund && \
     "${NODE_DIR}/bin/pnpm" --version && \
     chown -R runner:runner /opt/hostedtoolcache/node
@@ -87,10 +97,11 @@ ENV ACTIONS_RUNNER_ACTION_ARCHIVE_CACHE=/home/runner/_action-cache
 # for the full 10-minute window per segment and burns the job timeout.
 ENV SEGMENT_DOWNLOAD_TIMEOUT_MINS=3
 
-# Default npm/pnpm/yarn to a fast mirror. The upstream registry.npmjs.org is
-# slow enough from this runner's network to time out 15-min jobs on its own.
-# Override with -e npm_config_registry=... if you need a different registry.
-ENV npm_config_registry=https://registry.npmmirror.com/
+# Default npm/pnpm/yarn to the same registry the build used (NPM_REGISTRY arg,
+# default npmmirror). The upstream registry.npmjs.org is slow enough from this
+# runner's network to time out 15-min jobs on its own. Override at runtime
+# with -e npm_config_registry=...
+ENV npm_config_registry=${NPM_REGISTRY}
 
 RUN chown -R runner:runner /home/runner
 

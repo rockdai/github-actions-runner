@@ -42,8 +42,11 @@ Override either at build time:
 docker build \
   --build-arg NODE_VERSION=22.20.0 \
   --build-arg PNPM_VERSION=10.33.4 \
+  --build-arg NPM_REGISTRY=https://registry.npmjs.org/ \
   -t rockdai/github-actions-runner:latest .
 ```
+
+`NPM_REGISTRY` (default `https://registry.npmmirror.com/`) controls both the build-time `pnpm` install and the baked-in `npm_config_registry` env var. The Node tarball is fetched from `nodejs.org` and verified against its `SHASUMS256.txt` so the build fails closed on a corrupted or substituted download.
 
 Workflows pinning a different major/minor (e.g. `node-version: 20`) still work — `setup-node` falls back to downloading on first use. Workflows that keep `pnpm/action-setup` also still work; the action installs its own copy at a higher-priority `PATH` entry.
 
